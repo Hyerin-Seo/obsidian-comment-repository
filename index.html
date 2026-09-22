@@ -36,10 +36,14 @@
   // 누른 사람이 한 번 고른 볼트를 이 브라우저에 기억합니다. 없는 볼트로 열면 옵시디언이 "Vault not found" 를 띄웁니다.
   //   #file=<노트 경로>&v=<볼트1>&v=<볼트2>      (예전 링크 #vault=<볼트>&file=… 도 받습니다)
   var KEY = "obsidian-comment-vault";
+  // 우리 둘의 볼트 — 링크에 후보가 하나뿐인 예전 링크(#vault=…)에서도 내 볼트를 고를 수 있게.
+  // 예전엔 후보가 하나면 묻지도 않고 그걸로 열고 고르는 단추도 숨겨서, 남의 볼트 이름이면 빠져나갈 길이 없었습니다.
+  var KNOWN = ["개똥이 머릿속", "What-s-in-my-head"];
   var p = new URLSearchParams(location.hash.slice(1));
   var file = p.get("file");
   var vaults = p.getAll("v");
   if (p.get("vault") && vaults.indexOf(p.get("vault")) < 0) vaults.push(p.get("vault"));
+  KNOWN.forEach(function (v) { if (vaults.indexOf(v) < 0) vaults.push(v); });
   var saved = null;
   try { saved = localStorage.getItem(KEY); } catch (e) {}
   if (saved && vaults.indexOf(saved) < 0) vaults.push(saved);
@@ -69,7 +73,7 @@
       b.onclick = function () { open(v, true); };
       btns.appendChild(b);
     });
-    document.getElementById("pick").style.display = vaults.length > 1 || !saved ? "block" : "none";
+    document.getElementById("pick").style.display = "block";   // 잘못 골랐을 때 바꿀 길은 늘 둡니다
   }
 
   if (!file) {
