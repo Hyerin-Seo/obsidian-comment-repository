@@ -9,10 +9,15 @@
   :root { color-scheme: light dark; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center;
          font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { text-align: center; padding: 24px; }
-  #name { font-weight: 600; margin: 8px 0 16px; word-break: break-all; }
+  main { text-align: center; padding: 24px; max-width: 520px; }
+  #name { font-weight: 600; margin: 8px 0 18px; word-break: break-all; }
+  #pick { display: none; margin: 18px 0 6px; }
+  #pick p { margin: 0 0 10px; }
+  #pick button { margin: 4px; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+                 border: 1px solid #7c6fd6; background: transparent; color: inherit; font-size: 15px; }
+  #pick button.on { background: #7c6fd6; color: #fff; }
   a { color: #7c6fd6; }
-  small { opacity: .6; }
+  small { opacity: .6; display: block; margin-top: 14px; }
 </style>
 </head>
 <body>
@@ -20,22 +25,68 @@
   <p id="msg">옵시디언을 여는 중…</p>
   <p id="name"></p>
   <p><a id="go" href="#">안 열리면 여기를 누르세요</a></p>
-  <p><small>처음 한 번은 브라우저가 "Obsidian 을 열까요?" 하고 묻습니다 — 항상 허용을 켜 두면 다음부터 바로 열립니다.</small></p>
+  <div id="pick"><p id="ask">다른 볼트로 열기</p><div id="btns"></div></div>
+  <small>처음 한 번은 브라우저가 "Obsidian 을 열까요?" 하고 묻습니다 — 항상 허용을 켜 두면 다음부터 바로 열립니다.</small>
 </main>
 <script>
   // 슬랙 알림의 `옵시디언에서 열기 →` 가 여기로 옵니다. 슬랙이 obsidian:// 링크를 막아서 한 번 거칩니다.
-  // 볼트 이름·노트 경로는 주소의 # 뒤에만 있어서 이 서버(GitHub)로 안 갑니다 — 브라우저 안에서만 읽습니다.
+  // 노트 경로·볼트 이름은 주소의 # 뒤에만 있어서 이 서버(GitHub)로 안 갑니다 — 브라우저 안에서만 읽습니다.
+  //
+  // 사람마다 볼트 폴더 이름이 달라서(개똥이 머릿속 · What-s-in-my-head) 링크에 후보를 다 담고,
+  // 누른 사람이 한 번 고른 볼트를 이 브라우저에 기억합니다. 없는 볼트로 열면 옵시디언이 "Vault not found" 를 띄웁니다.
+  //   #file=<노트 경로>&v=<볼트1>&v=<볼트2>      (예전 링크 #vault=<볼트>&file=… 도 받습니다)
+  var KEY = "obsidian-comment-vault";
   var p = new URLSearchParams(location.hash.slice(1));
-  var vault = p.get("vault"), file = p.get("file");
+  var file = p.get("file");
+  var vaults = p.getAll("v");
+  if (p.get("vault") && vaults.indexOf(p.get("vault")) < 0) vaults.push(p.get("vault"));
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved && vaults.indexOf(saved) < 0) vaults.push(saved);
+
   var go = document.getElementById("go");
-  if (vault && file) {
-    var url = "obsidian://open?vault=" + encodeURIComponent(vault) + "&file=" + encodeURIComponent(file);
-    document.getElementById("name").textContent = file.split("/").pop();
-    go.href = url;
-    location.replace(url);
-  } else {
-    document.getElementById("msg").textContent = "열 노트가 주소에 없습니다.";
+  var msg = document.getElementById("msg");
+  var btns = document.getElementById("btns");
+
+  function urlFor(v) {
+    return "obsidian://open?vault=" + encodeURIComponent(v) + "&file=" + encodeURIComponent(file);
+  }
+  function open(v, remember) {
+    if (remember) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+    saved = v;
+    msg.textContent = "옵시디언을 여는 중… (" + v + ")";
+    go.style.display = "";
+    go.href = urlFor(v);
+    draw();
+    location.href = urlFor(v);
+  }
+  function draw() {
+    btns.textContent = "";
+    vaults.forEach(function (v) {
+      var b = document.createElement("button");
+      b.textContent = v;
+      if (v === saved) b.className = "on";
+      b.onclick = function () { open(v, true); };
+      btns.appendChild(b);
+    });
+    document.getElementById("pick").style.display = vaults.length > 1 || !saved ? "block" : "none";
+  }
+
+  if (!file) {
+    msg.textContent = "열 노트가 주소에 없습니다.";
     go.remove();
+  } else {
+    document.getElementById("name").textContent = file.split("/").pop();
+    if (saved) {
+      open(saved, false);                       // 고른 적 있으면 그 볼트로 바로
+    } else if (vaults.length === 1) {
+      open(vaults[0], false);                   // 후보가 하나뿐이면 그걸로 (기억은 안 함)
+    } else {
+      msg.textContent = "내 볼트는 어느 것인가요?";
+      document.getElementById("ask").textContent = "한 번 고르면 이 브라우저가 기억하고, 다음부터 바로 엽니다.";
+      go.style.display = "none";
+      draw();
+    }
   }
 </script>
 </body>
